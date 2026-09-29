@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<title>Hit Point Counter</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+
+    background: #111;
+    color: #ddd;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-family: "Courier New", Courier, monospace;
+}
+
+.container {
+    text-align: center;
+}
+
+#game {
+    white-space: pre;
+    text-align: left;
+
+    font-family: "Courier New", Courier, monospace;
+    font-size: 28px;
+    line-height: 1.45;
+
+    display: inline-block;
+}
+
+.controls {
+    margin-top: 35px;
+
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+}
+
+button {
+    background: none;
+    border: none;
+
+    color: #aaa;
+
+    font-family: "Courier New", Courier, monospace;
+    font-size: 22px;
+
+    cursor: pointer;
+
+    padding: 5px 8px;
+}
+
+button:hover {
+    color: white;
+}
+
+.bottom-controls {
+    margin-top: 35px;
+
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+}
+
+#death-controls {
+    display: none;
+}
+
+
+/* EDIT WINDOW */
+
+#editor {
+    display: none;
+
+    margin: 30px auto 0 auto;
+    width: 330px;
+
+    border: 1px solid #777;
+
+    padding: 20px;
+
+    text-align: left;
+}
+
+.edit-row {
+    margin-bottom: 15px;
+}
+
+label {
+    display: inline-block;
+    width: 110px;
+
+    color: #aaa;
+}
+
+input {
+    width: 150px;
+
+    background: #111;
+    color: #ddd;
+
+    border: 1px solid #777;
+
+    font-family: "Courier New", Courier, monospace;
+    font-size: 18px;
+
+    padding: 5px;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <div id="game"></div>
+
+
+    <div class="controls" id="hp-controls">
+
+        <button onclick="changeHP(-5)">−5</button>
+
+        <button onclick="changeHP(-1)">−1</button>
+
+        <button onclick="changeHP(1)">+1</button>
+
+        <button onclick="changeHP(5)">+5</button>
+
+    </div>
+
+
+    <div class="controls" id="death-controls">
+
+        <button onclick="deathSave(true)">
+            ♥ SAVE
+        </button>
+
+        <button onclick="deathSave(false)">
+            ☠ FAIL
+        </button>
+
+    </div>
+
+
+    <div class="bottom-controls">
+
+        <button onclick="toggleEditor()">
+            EDIT
+        </button>
+
+        <button onclick="resetHP()">
+            RESET HP
+        </button>
+
+    </div>
+
+
+    <div id="editor">
+
+        <div class="edit-row">
+
+            <label>NAME</label>
+
+            <input
+                id="name-input"
+                type="text"
+                value="CHAD"
+            >
+
+        </div>
+
+
+        <div class="edit-row">
+
+            <label>LEVEL</label>
+
+            <input
+                id="level-input"
+                type="number"
+                value="7"
+                min="1"
+            >
+
+        </div>
+
+
+        <div class="edit-row">
+
+            <label>MAX HP</label>
+
+            <input
+                id="maxhp-input"
+                type="number"
+                value="75"
+                min="1"
+            >
+
+        </div>
+
+
+        <div style="text-align:center; margin-top:20px;">
+
+            <button onclick="saveCharacter()">
+                SAVE
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+
+/* -------------------------
+   CHARACTER
+------------------------- */
+
+let characterName = "CHAD";
+
+let level = 7;
+
+let maxHP = 75;
+
+let hp = 75;
+
+
+/* -------------------------
+   DEATH SAVES
+------------------------- */
+
+let successes = 0;
+
+let failures = 0;
+
+
+/* -------------------------
+   HEALTH BAR
+------------------------- */
+
+const barLength = 10;
+
+
+/* -------------------------
+   BOX SIZE
+------------------------- */
+
+const insideWidth = 28;
+
+
+/* -------------------------
+   BUILD ONE PERFECT BOX LINE
+------------------------- */
+
+function boxLine(content = "") {
+
+    /*
+    Every line goes through this function.
+
+    That means the computer adds exactly
+    enough spaces to keep the right wall
+    in the same place.
+    */
+
+    let usableSpace = insideWidth - 2;
+
+    let safeContent =
+        content.substring(0, usableSpace);
+
+    return (
+        "│ " +
+        safeContent.padEnd(usableSpace, " ") +
+        " │"
+    );
+}
+
+
+/* -------------------------
+   DRAW HP SCREEN
+------------------------- */
+
+function drawHP() {
+
+    let percent = hp / maxHP;
+
+    let filled =
+        Math.round(percent * barLength);
+
+
+    if (filled < 0) {
+        filled = 0;
+    }
+
+    if (filled > barLength) {
+        filled = barLength;
+    }
+
+
+    let empty =
+        barLength - filled;
+
+
+    let bar =
+        "█".repeat(filled) +
+        "░".repeat(empty);
+
+
+    /*
+    TOP LINE
+    */
+
+    let levelText =
+        "LV. " + level;
+
+    let topGap =
+        insideWidth -
+        2 -
+        characterName.length -
+        levelText.length;
+
+    if (topGap < 1) {
+        topGap = 1;
+    }
+
+
+    let topLine =
+        characterName +
+        " ".repeat(topGap) +
+        levelText;
+
+
+    /*
+    HP BAR LINE
+    */
+
+    let hpText =
+        String(hp);
+
+    let hpLine =
+        "HP  " +
+        bar +
+        "  " +
+        hpText;
+
+
+    /*
+    NUMBER LINE
+    */
+
+    let numberLine =
+        "    " +
+        hp +
+        " / " +
+        maxHP;
+
+
+    /*
+    BUILD ENTIRE SCREEN
+    */
+
+    let screen = [
+
+        "┌" +
+        "─".repeat(insideWidth) +
+        "┐",
+
+        boxLine(topLine),
+
+        boxLine(hpLine),
+
+        boxLine(numberLine),
+
+        boxLine(),
+
+        boxLine("♥  ♥  ♥"),
+
+        "└" +
+        "─".repeat(insideWidth) +
+        "┘"
+
+    ].join("\n");
+
+
+    document.getElementById("game")
+        .textContent = screen;
+}
+
+
+/* -------------------------
+   DRAW DEATH SCREEN
+------------------------- */
+
+function drawDeath() {
+
+
+    let successMarks = "";
+
+    let failureMarks = "";
+
+
+    for (let i = 0; i < 3; i++) {
+
+        if (i < successes) {
+
+            successMarks += "♥ ";
+
+        } else {
+
+            successMarks += "○ ";
+        }
+    }
+
+
+    for (let i = 0; i < 3; i++) {
+
+        if (i < failures) {
+
+            failureMarks += "☠ ";
+
+        } else {
+
+            failureMarks += "○ ";
+        }
+    }
+
+
+    let title = "☠ DOWN ☠";
+
+
+    if (successes >= 3) {
+
+        title = "STABILIZED";
+    }
+
+
+    if (failures >= 3) {
+
+        title = "☠ DEAD ☠";
+    }
+
+
+    let screen = [
+
+        "┌" +
+        "─".repeat(insideWidth) +
+        "┐",
+
+        boxLine(),
+
+        boxLine(
+            title.padStart(
+                Math.floor(
+                    (insideWidth - 2 + title.length) / 2
+                )
+            )
+        ),
+
+        boxLine(),
+
+        boxLine("DEATH SAVES"),
+
+        boxLine(),
+
+        boxLine(
+            "PASS    " + successMarks
+        ),
+
+        boxLine(
+            "FAIL    " + failureMarks
+        ),
+
+        boxLine(),
+
+        "└" +
+        "─".repeat(insideWidth) +
+        "┘"
+
+    ].join("\n");
+
+
+    document.getElementById("game")
+        .textContent = screen;
+}
+
+
+/* -------------------------
+   DAMAGE / HEAL
+------------------------- */
+
+function changeHP(amount) {
+
+    if (hp === 0 && amount < 0) {
+        return;
+    }
+
+
+    hp += amount;
+
+
+    if (hp > maxHP) {
+
+        hp = maxHP;
+    }
+
+
+    if (hp < 0) {
+
+        hp = 0;
+    }
+
+
+    /*
+    In D&D, receiving healing while at
+    zero HP brings you back up.
+    */
+
+    if (hp > 0) {
+
+        successes = 0;
+
+        failures = 0;
+    }
+
+
+    update();
+}
+
+
+/* -------------------------
+   DEATH SAVE
+------------------------- */
+
+function deathSave(success) {
+
+
+    if (successes >= 3 ||
+        failures >= 3) {
+
+        return;
+    }
+
+
+    if (success) {
+
+        successes++;
+
+    } else {
+
+        failures++;
+    }
+
+
+    update();
+}
+
+
+/* -------------------------
+   RESET HP
+------------------------- */
+
+function resetHP() {
+
+    hp = maxHP;
+
+    successes = 0;
+
+    failures = 0;
+
+    update();
+}
+
+
+/* -------------------------
+   EDIT CHARACTER
+------------------------- */
+
+function toggleEditor() {
+
+    let editor =
+        document.getElementById("editor");
+
+
+    if (editor.style.display === "block") {
+
+        editor.style.display = "none";
+
+    } else {
+
+        editor.style.display = "block";
+    }
+}
+
+
+/* -------------------------
+   SAVE CHARACTER
+------------------------- */
+
+function saveCharacter() {
+
+
+    let newName =
+        document
+        .getElementById("name-input")
+        .value
+        .trim()
+        .toUpperCase();
+
+
+    let newLevel =
+        parseInt(
+            document
+            .getElementById("level-input")
+            .value
+        );
+
+
+    let newMaxHP =
+        parseInt(
+            document
+            .getElementById("maxhp-input")
+            .value
+        );
+
+
+    if (newName !== "") {
+
+        characterName = newName;
+    }
+
+
+    if (
+        !isNaN(newLevel) &&
+        newLevel > 0
+    ) {
+
+        level = newLevel;
+    }
+
+
+    if (
+        !isNaN(newMaxHP) &&
+        newMaxHP > 0
+    ) {
+
+        maxHP = newMaxHP;
+
+        hp = maxHP;
+    }
+
+
+    successes = 0;
+
+    failures = 0;
+
+
+    document.getElementById("editor")
+        .style.display = "none";
+
+
+    update();
+}
+
+
+/* -------------------------
+   UPDATE SCREEN
+------------------------- */
+
+function update() {
+
+
+    if (hp === 0) {
+
+
+        drawDeath();
+
+
+        document
+        .getElementById("hp-controls")
+        .style.display = "none";
+
+
+        document
+        .getElementById("death-controls")
+        .style.display = "flex";
+
+
+    } else {
+
+
+        drawHP();
+
+
+        document
+        .getElementById("hp-controls")
+        .style.display = "flex";
+
+
+        document
+        .getElementById("death-controls")
+        .style.display = "none";
+    }
+}
+
+
+/* -------------------------
+   KEYBOARD
+------------------------- */
+
+document.addEventListener(
+    "keydown",
+    function(event) {
+
+
+        /*
+        Don't change HP with arrow keys
+        while typing in an input box.
+        */
+
+        if (
+            document.activeElement.tagName
+            === "INPUT"
+        ) {
+
+            return;
+        }
+
+
+        if (event.key === "ArrowLeft") {
+
+            changeHP(-1);
+        }
+
+
+        if (event.key === "ArrowRight") {
+
+            changeHP(1);
+        }
+
+
+        if (event.key === "ArrowDown") {
+
+            changeHP(-5);
+        }
+
+
+        if (event.key === "ArrowUp") {
+
+            changeHP(5);
+        }
+
+    }
+);
+
+
+/* -------------------------
+   START
+------------------------- */
+
+update();
+
+
+</script>
+
+</body>
+</html>
